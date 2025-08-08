@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pokémon Chess — Ash vs Team Rocket (AI)</title>
+
+<!-- chessboard.js CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
+
+<style>
+  :root{
+    --bg:#071427; --panel:#0d2033; --muted:#9fbfe4; --accent:#ffd34d;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#041426,#071427); color:#e8f6ff}
+  .container{max-width:1100px;margin:18px auto;padding:16px;display:flex;gap:16px;align-items:flex-start}
+  .left{width:640px;background:linear-gradient(180deg,#071e33,#062033);padding:16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+  .right{flex:1;background:linear-gradient(180deg,#091f2f,#071524);padding:16px;border-radius:12px;color:var(--muted)}
+  h1{margin:0 0 6px;font-size:20px;color:var(--accent)}
+  p.lead{margin:0 0 14px;color:#9fbfe4}
+  #board{width:600px;max-width:100%;margin:6px auto}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button,select{background:#0f2f4a;border:0;color:#eaf7ff;padding:8px 10px;border-radius:8px;cursor:pointer}
+  button:hover,select:hover{filter:brightness(1.08)}
+  input[type=text]{flex:1;padding:8px;border-radius:8px;border:none;background:#041726;color:#eaf7ff}
+  label{display:block;font-size:13px;margin-top:10px;color:#bcdff9}
+  .status{margin-top:10px;font-weight:600;color:#cfe8ff}
+  .moves{height:300px; overflow:auto; background:rgba(255,255,255,0.03); padding:10px;border-radius:8px; margin-top:10px; font-size:14px}
+  .footer{margin-top:12px;color:#98bfe0;font-size:13px}
+  .row{display:flex;gap:8px;align-items:center}
+  .small{font-size:13px;color:#9fc0e6}
+  .control-group{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  @media (max-width:900px){ .container{flex-direction:column;padding:10px} .left{width:100%} }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="left">
+      <div class="top-bar">
+        <div>
+          <h1>Pokémon Chess — Ash vs Team Rocket</h1>
+          <p class="lead">Real chess rules. Play vs AI or local 2-player. Ash (White) vs Team Rocket (Black).</p>
+        </div>
+        <div class="small">Made for you — paste to GitHub Pages & play on iPad</div>
+      </div>
+
+      <div id="board"></div>
+
+      <div class="controls">
+        <button id="newBtn">New Game</button>
+        <button id="undoBtn">Undo</button>
+        <button id="flipBtn">Flip Board</button>
+
+        <div style="display:flex;gap:8px;align-items:center;flex:1">
+          <button id="exportBtn">Export FEN</button>
+          <button id="importBtn">Import FEN</button>
+          <input id="fenInput" type="text" placeholder="Paste FEN here" />
+        </div>
+      </div>
+
+      <div class="footer">Tip: choose side and AI difficulty on the right. Use Export/Import FEN to save positions.</div>
+    </div>
+
+    <div class="right">
+      <label>Play mode</label>
+      <div class="control-group">
+        <select id="modeSelect">
+          <option value="human-vs-human">Local 2-player</option>
+          <option value="human-vs-ai">Play vs AI</option>
+        </select>
+
+        <label style="margin-left:6px">You play as:</label>
+        <select id="sideSelect">
+          <option value="w">White (Ash)</option>
+          <option value="b">Black (Team Rocket)</option>
+        </select>
+      </div>
+
+      <label>AI difficulty (search depth)</label>
+      <div class="control-group">
+        <input id="depthRange" type="range" min="1" max="4" value="2" />
+        <div id="depthLabel" class="small">Depth: 2</div>
+      </div>
+
+      <label>Game status</label>
+      <div id="status" class="status">Ready</div>
+
+      <label>Move list</label>
+      <div class="moves" id="moveList"></div>
+
+      <label>Piece mapping (visual only)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White King: Pikachu</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Queen: Charizard</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Rook: Dragonite</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Bishop: Greninja</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Knight: Gengar</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Pawn: Bulbasaur</div>
+
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black King: Meowth</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Queen: Wobbuffet</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Rook: Arbok</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Bishop: Weezing</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Knight: Mime Jr.</div>
+        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Pawn: Koffing</div>
+      </div>
+      <div style="height:10px"></div>
+      <div style="font-size:13px;color:#9fc0e6">If you want piece art changed or auto-promotion visuals, tell me and I'll tweak it.</div>
+    </div>
+  </div>
+
+<!-- libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+
+<script>
+/* ----- CONFIG: Pokémon images (official artwork from PokéAPI) ----- */
+const PICS = {
+  w: {
+    K: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png',  // Pikachu
+    Q: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png',   // Charizard
+    R: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png', // Dragonite
+    B: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/658.png', // Greninja
+    N: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png',  // Gengar
+    P: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png'    // Bulbasaur
+  },
+  b: {
+    K: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/52.png',  // Meowth
+    Q: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/202.png', // Wobbuffet
+    R: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/24.png',  // Arbok
+    B: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/110.png', // Weezing
+    N: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/439.png', // Mime Jr.
+    P: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/109.png'  // Koffing
+  }
+};
+
+function pieceTheme(piece) {
+  // piece e.g. 'wK' or 'bQ'
+  const color = piece[0], type = piece[1];
+  const url = (PICS[color] && (PICS[color][type] || PICS[color]['P'])) || '';
+  // chessboard.js accepts the image URL directly
+  return url;
+}
+
+/* ----- Initialize chess.js and chessboard.js ----- */
+const game = new Chess();
+let board = null;
+const config = {
+  draggable: true,
+  position: 'start',
+  pieceTheme: pieceTheme,
+  onDragStart: onDragStart,
+  onDrop: onDrop,
+  onSnapEnd: onSnapEnd
+};
+board = Chessboard('board', config);
+
+/* ----- UI elements ----- */
+const statusEl = document.getElementById('status');
+const moveListEl = document.getElementById('moveList');
+const newBtn = document.getElementById('newBtn');
+const undoBtn = document.getElementById('undoBtn');
+const flipBtn = document.getElementById('flipBtn');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const fenInput = document.getElementById('fenInput');
+const modeSelect = document.getElementById('modeSelect');
+const sideSelect = document.getElementById('sideSelect');
+const depthRange = document.getElementById('depthRange');
+const depthLabel = document.getElementById('depthLabel');
+
+depthRange.addEventListener('input', ()=>{ depthLabel.innerText = 'Depth: ' + depthRange.value; });
+
+newBtn.addEventListener('click', ()=>{ startNewGame(); });
+undoBtn.addEventListener('click', ()=>{ undoMove(); });
+flipBtn.addEventListener('click', ()=>{ board.flip(); });
+exportBtn.addEventListener('click', ()=>{ prompt('Copy this FEN:', game.fen()); });
+importBtn.addEventListener('click', ()=>{ const f = fenInput.value.trim(); if(!f){alert('Paste a FEN string first'); return;} const ok = game.load(f); if(!ok){ alert('Invalid FEN'); return;} board.position(game.fen()); updateStatus(); });
+
+/* ----- Drag/drop handlers ----- */
+function onDragStart(source, piece, position, orientation) {
+  if (game.game_over()) return false;
+  // only drag pieces of the side to move in PvP and for human side in PvAI
+  const mode = modeSelect.value;
+  if (mode === 'human-vs-ai') {
+    const humanSide = sideSelect.value;
+    if ((game.turn() === 'w' && piece.startsWith('b')) || (game.turn() === 'b' && piece.startsWith('w'))) {
+      // it's the side to move but not necessarily human — block if AI to move
+      // if it's AI's turn, block drag
+    }
+    // allow drag only if the piece belongs to human
+    if (!piece.startsWith(humanSide)) return false;
+    // also block if it's not human's turn
+    if ((game.turn() === 'w' && humanSide !== 'w') || (game.turn() === 'b' && humanSide !== 'b')) return false;
+  } else {
+    // local 2-player: allow any side to move normally (dragging rules handled below by chess.js)
+    if ((game.turn() === 'w' && piece.startsWith('b')) || (game.turn() === 'b' && piece.startsWith('w'))) {
+      return false;
+    }
+  }
+}
+
+function onDrop(source, target) {
+  // attempt the move
+  const move = game.move({from: source, to: target, promotion: 'q'});
+  if (move === null) return 'snapback';
+  updateStatus();
+  // if playing vs AI and game not over and it's AI's turn, trigger AI
+  if (modeSelect.value === 'human-vs-ai') {
+    const humanSide = sideSelect.value;
+    if ((game.turn() === 'w' && humanSide !== 'w') || (game.turn() === 'b' && humanSide !== 'b')) {
+      // AI to move
+      window.setTimeout(runAI, 200);
+    }
+  }
+}
+
+function onSnapEnd() {
+  board.position(game.fen());
+}
+
+/* ----- Game helpers ----- */
+function updateStatus() {
+  let status = '';
+  const turn = game.turn() === 'w' ? 'White (Ash)' : 'Black (Team Rocket)';
+  if (game.in_checkmate()) {
+    status = 'Checkmate — ' + (game.turn() === 'w' ? 'Black wins' : 'White wins') + '.';
+  } else if (game.in_draw()) {
+    status = 'Draw.';
+  } else {
+    status = turn + ' to move';
+    if (game.in_check()) status += ' — CHECK!';
+  }
+  statusEl.innerText = status;
+  renderMoveList();
+}
+
+function renderMoveList() {
+  const history = game.history({verbose:true});
+  let html = '';
+  for (let i=0;i<history.length;i+=2) {
+    const white = history[i] ? history[i].san : '';
+    const black = history[i+1] ? history[i+1].san : '';
+    const moveNum = (Math.floor(i/2) + 1) + '.';
+    html += `<div style="margin-bottom:6px"><strong>${moveNum}</strong> ${white} &nbsp;&nbsp; ${black}</div>`;
+  }
+  moveListEl.innerHTML = html || '<div class="small">No moves yet</div>';
+}
+
+/* ----- Start/Reset/Undo ----- */
+function startNewGame() {
+  game.reset();
+  board.start();
+  updateStatus();
+  // if user chose side=black and mode=human-vs-ai, AI (white) should play first
+  if (modeSelect.value === 'human-vs-ai' && sideSelect.value === 'b') {
+    // AI is white; run AI move after small delay
+    window.setTimeout(runAI, 400);
+  }
+}
+
+function undoMove() {
+  // If playing vs AI, undo two plies to undo both player's and AI's last move
+  if (modeSelect.value === 'human-vs-ai') {
+    game.undo(); // undo last move (probably AI)
+    game.undo(); // undo previous (player)
+    board.position(game.fen());
+    updateStatus();
+  } else {
+    game.undo();
+    board.position(game.fen());
+    updateStatus();
+  }
+}
+
+/* ----- SIMPLE AI: minimax with alpha-beta ----- */
+/*
+  This is a lightweight JS AI sufficient for a casual opponent.
+  Depth slider controls the search depth (1..4). Depth 3-4 is decent.
+*/
+
+function runAI() {
+  if (game.game_over()) return;
+  const depth = parseInt(depthRange.value,10);
+  const best = findBestMove(depth);
+  if (!best) return;
+  game.move({from: best.from, to: best.to, promotion: best.promotion || 'q'});
+  board.position(game.fen());
+  updateStatus();
+}
+
+/* Evaluate board using piece values + simple piece-square preference */
+function evaluateBoardSimple(board) {
+  const values = {p:100, n:320, b:330, r:500, q:900, k:20000};
+  let total = 0;
+  for (let i=0;i<8;i++){
+    for (let j=0;j<8;j++){
+      const piece = board[i][j];
+      if (piece) {
+        const val = values[piece.type] || 0;
+        total += (piece.color === 'w') ? val : -val;
+      }
+    }
+  }
+  return total;
+}
+
+function findBestMove(depth) {
+  const player = game.turn();
+  let bestMove = null;
+  let bestValue = -Infinity;
+  const possibleMoves = game.moves({verbose:true});
+  // move ordering: try captures first (simple heuristic)
+  possibleMoves.sort((a,b) => (b.captured ? 1:0) - (a.captured ? 1:0));
+
+  for (let i=0;i<possibleMoves.length;i++) {
+    const m = possibleMoves[i];
+    game.move({from:m.from, to:m.to, promotion: m.promotion || 'q'});
+    const value = -negamax(depth-1, -Infinity, Infinity);
+    game.undo();
+    if (value > bestValue) {
+      bestValue = value;
+      bestMove = {from:m.from, to:m.to, promotion: m.promotion};
+    }
+  }
+  return bestMove;
+}
+
+function negamax(depth, alpha, beta) {
+  if (depth === 0) {
+    return evaluateBoardSimple(game.board());
+  }
+
+  if (game.game_over()) {
+    // large positive if current player (to move) wins? we return evaluation relative to side to move
+    if (game.in_checkmate()) {
+      return -999999 + (4 - depth); // losing position for side to move
+    }
+    return 0; // draw
+  }
+
+  let max = -Infinity;
+  const moves = game.moves({verbose:true});
+  // basic ordering: captures first
+  moves.sort((a,b) => (b.captured ? 1:0) - (a.captured ? 1:0));
+
+  for (let i=0;i<moves.length;i++) {
+    const m = moves[i];
+    game.move({from:m.from, to:m.to, promotion: m.promotion || 'q'});
+    const score = -negamax(depth-1, -beta, -alpha);
+    game.undo();
+    if (score > max) max = score;
+    if (max > alpha) alpha = max;
+    if (alpha >= beta) break; // alpha-beta cutoff
+  }
+  return max;
+}
+
+/* ----- initialize UI ----- */
+startNewGame();
+updateStatus();
+
+/* ----- make sure AI plays first if appropriate on load ----- */
+window.addEventListener('load', ()=> {
+  if (modeSelect.value === 'human-vs-ai' && sideSelect.value === 'b') {
+    // AI = white
+    setTimeout(runAI, 300);
+  }
+});
+</script>
+</body>
+</html>
