@@ -1,373 +1,464 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pokémon Chess — Ash vs Team Rocket (AI)</title>
-
-<!-- chessboard.js CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
-
-<style>
-  :root{
-    --bg:#071427; --panel:#0d2033; --muted:#9fbfe4; --accent:#ffd34d;
-  }
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#041426,#071427); color:#e8f6ff}
-  .container{max-width:1100px;margin:18px auto;padding:16px;display:flex;gap:16px;align-items:flex-start}
-  .left{width:640px;background:linear-gradient(180deg,#071e33,#062033);padding:16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-  .right{flex:1;background:linear-gradient(180deg,#091f2f,#071524);padding:16px;border-radius:12px;color:var(--muted)}
-  h1{margin:0 0 6px;font-size:20px;color:var(--accent)}
-  p.lead{margin:0 0 14px;color:#9fbfe4}
-  #board{width:600px;max-width:100%;margin:6px auto}
-  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-  button,select{background:#0f2f4a;border:0;color:#eaf7ff;padding:8px 10px;border-radius:8px;cursor:pointer}
-  button:hover,select:hover{filter:brightness(1.08)}
-  input[type=text]{flex:1;padding:8px;border-radius:8px;border:none;background:#041726;color:#eaf7ff}
-  label{display:block;font-size:13px;margin-top:10px;color:#bcdff9}
-  .status{margin-top:10px;font-weight:600;color:#cfe8ff}
-  .moves{height:300px; overflow:auto; background:rgba(255,255,255,0.03); padding:10px;border-radius:8px; margin-top:10px; font-size:14px}
-  .footer{margin-top:12px;color:#98bfe0;font-size:13px}
-  .row{display:flex;gap:8px;align-items:center}
-  .small{font-size:13px;color:#9fc0e6}
-  .control-group{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .top-bar{display:flex;justify-content:space-between;align-items:center;gap:12px}
-  @media (max-width:900px){ .container{flex-direction:column;padding:10px} .left{width:100%} }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Plant vs Zombies — Mini Clone</title>
+  <style>
+    :root {
+      --bg: #132a13;
+      --panel: #1f5131;
+      --card: #2e7d32;
+      --text: #f3ffe7;
+      --accent: #ffde59;
+      --danger: #f44336;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #2d6a4f, var(--bg));
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .game-shell {
+      display: grid;
+      grid-template-columns: 1fr 290px;
+      gap: 16px;
+      width: min(1100px, 100%);
+      align-items: start;
+    }
+    canvas {
+      width: 100%;
+      border: 4px solid #7f4f24;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #7cb342 0%, #558b2f 100%);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+    .panel {
+      background: rgba(21, 67, 37, 0.95);
+      border: 2px solid #3fa34d;
+      border-radius: 12px;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      color: var(--accent);
+    }
+    .stat {
+      background: rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.95rem;
+    }
+    .cards {
+      display: grid;
+      gap: 8px;
+    }
+    .card {
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 8px;
+      background: var(--card);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+    }
+    .card:hover { filter: brightness(1.1); }
+    .card.selected { border-color: var(--accent); }
+    .card.disabled { opacity: 0.45; cursor: not-allowed; }
+    button {
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      background: #0f3d22;
+      color: var(--text);
+    }
+    button:hover { filter: brightness(1.1); }
+    .tip {
+      font-size: 0.88rem;
+      opacity: 0.9;
+      line-height: 1.35;
+    }
+    .game-over {
+      color: #ffd6d6;
+      background: rgba(244, 67, 54, 0.24);
+      border: 1px solid var(--danger);
+      border-radius: 8px;
+      padding: 8px;
+      font-weight: 700;
+    }
+    @media (max-width: 980px) {
+      .game-shell { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <div class="left">
-      <div class="top-bar">
-        <div>
-          <h1>Pokémon Chess — Ash vs Team Rocket</h1>
-          <p class="lead">Real chess rules. Play vs AI or local 2-player. Ash (White) vs Team Rocket (Black).</p>
-        </div>
-        <div class="small">Made for you — paste to GitHub Pages & play on iPad</div>
+  <div class="game-shell">
+    <canvas id="game" width="900" height="500"></canvas>
+    <aside class="panel">
+      <h1>Plant vs Zombies</h1>
+      <div class="stat" id="sunCounter">☀ Sun: 150</div>
+      <div class="stat" id="waveCounter">🧟 Wave: 1</div>
+      <div class="cards" id="cards"></div>
+      <button id="shovelBtn">Shovel Mode: Off</button>
+      <button id="restartBtn">Restart</button>
+      <div class="tip">
+        Pick a card, then click a tile to plant.<br>
+        <strong>Peashooter</strong> attacks zombies in its lane.<br>
+        <strong>Sunflower</strong> generates sun automatically.<br>
+        <strong>Wall-nut</strong> blocks zombies.
       </div>
-
-      <div id="board"></div>
-
-      <div class="controls">
-        <button id="newBtn">New Game</button>
-        <button id="undoBtn">Undo</button>
-        <button id="flipBtn">Flip Board</button>
-
-        <div style="display:flex;gap:8px;align-items:center;flex:1">
-          <button id="exportBtn">Export FEN</button>
-          <button id="importBtn">Import FEN</button>
-          <input id="fenInput" type="text" placeholder="Paste FEN here" />
-        </div>
-      </div>
-
-      <div class="footer">Tip: choose side and AI difficulty on the right. Use Export/Import FEN to save positions.</div>
-    </div>
-
-    <div class="right">
-      <label>Play mode</label>
-      <div class="control-group">
-        <select id="modeSelect">
-          <option value="human-vs-human">Local 2-player</option>
-          <option value="human-vs-ai">Play vs AI</option>
-        </select>
-
-        <label style="margin-left:6px">You play as:</label>
-        <select id="sideSelect">
-          <option value="w">White (Ash)</option>
-          <option value="b">Black (Team Rocket)</option>
-        </select>
-      </div>
-
-      <label>AI difficulty (search depth)</label>
-      <div class="control-group">
-        <input id="depthRange" type="range" min="1" max="4" value="2" />
-        <div id="depthLabel" class="small">Depth: 2</div>
-      </div>
-
-      <label>Game status</label>
-      <div id="status" class="status">Ready</div>
-
-      <label>Move list</label>
-      <div class="moves" id="moveList"></div>
-
-      <label>Piece mapping (visual only)</label>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White King: Pikachu</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Queen: Charizard</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Rook: Dragonite</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Bishop: Greninja</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Knight: Gengar</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">White Pawn: Bulbasaur</div>
-
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black King: Meowth</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Queen: Wobbuffet</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Rook: Arbok</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Bishop: Weezing</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Knight: Mime Jr.</div>
-        <div style="background:rgba(255,255,255,0.02);padding:8px;border-radius:8px">Black Pawn: Koffing</div>
-      </div>
-      <div style="height:10px"></div>
-      <div style="font-size:13px;color:#9fc0e6">If you want piece art changed or auto-promotion visuals, tell me and I'll tweak it.</div>
-    </div>
+      <div id="status"></div>
+    </aside>
   </div>
 
-<!-- libs -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
 
-<script>
-/* ----- CONFIG: Pokémon images (official artwork from PokéAPI) ----- */
-const PICS = {
-  w: {
-    K: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png',  // Pikachu
-    Q: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png',   // Charizard
-    R: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png', // Dragonite
-    B: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/658.png', // Greninja
-    N: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png',  // Gengar
-    P: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png'    // Bulbasaur
-  },
-  b: {
-    K: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/52.png',  // Meowth
-    Q: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/202.png', // Wobbuffet
-    R: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/24.png',  // Arbok
-    B: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/110.png', // Weezing
-    N: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/439.png', // Mime Jr.
-    P: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/109.png'  // Koffing
-  }
-};
+    const ROWS = 5;
+    const COLS = 9;
+    const TILE_W = 100;
+    const TILE_H = 100;
 
-function pieceTheme(piece) {
-  // piece e.g. 'wK' or 'bQ'
-  const color = piece[0], type = piece[1];
-  const url = (PICS[color] && (PICS[color][type] || PICS[color]['P'])) || '';
-  // chessboard.js accepts the image URL directly
-  return url;
-}
+    const CARD_DATA = {
+      peashooter: { name: 'Peashooter', cost: 100, color: '#4caf50' },
+      sunflower: { name: 'Sunflower', cost: 50, color: '#ffeb3b' },
+      wallnut: { name: 'Wall-nut', cost: 75, color: '#8d6e63' },
+    };
 
-/* ----- Initialize chess.js and chessboard.js ----- */
-const game = new Chess();
-let board = null;
-const config = {
-  draggable: true,
-  position: 'start',
-  pieceTheme: pieceTheme,
-  onDragStart: onDragStart,
-  onDrop: onDrop,
-  onSnapEnd: onSnapEnd
-};
-board = Chessboard('board', config);
+    const state = {
+      sun: 150,
+      wave: 1,
+      gameOver: false,
+      win: false,
+      selectedPlant: null,
+      shovelMode: false,
+      plants: [],
+      zombies: [],
+      peas: [],
+      nextZombieIn: 180,
+      totalSpawned: 0,
+      spawnLimit: 50,
+      frame: 0,
+    };
 
-/* ----- UI elements ----- */
-const statusEl = document.getElementById('status');
-const moveListEl = document.getElementById('moveList');
-const newBtn = document.getElementById('newBtn');
-const undoBtn = document.getElementById('undoBtn');
-const flipBtn = document.getElementById('flipBtn');
-const exportBtn = document.getElementById('exportBtn');
-const importBtn = document.getElementById('importBtn');
-const fenInput = document.getElementById('fenInput');
-const modeSelect = document.getElementById('modeSelect');
-const sideSelect = document.getElementById('sideSelect');
-const depthRange = document.getElementById('depthRange');
-const depthLabel = document.getElementById('depthLabel');
+    const ui = {
+      sunCounter: document.getElementById('sunCounter'),
+      waveCounter: document.getElementById('waveCounter'),
+      status: document.getElementById('status'),
+      cards: document.getElementById('cards'),
+      shovelBtn: document.getElementById('shovelBtn'),
+      restartBtn: document.getElementById('restartBtn'),
+    };
 
-depthRange.addEventListener('input', ()=>{ depthLabel.innerText = 'Depth: ' + depthRange.value; });
-
-newBtn.addEventListener('click', ()=>{ startNewGame(); });
-undoBtn.addEventListener('click', ()=>{ undoMove(); });
-flipBtn.addEventListener('click', ()=>{ board.flip(); });
-exportBtn.addEventListener('click', ()=>{ prompt('Copy this FEN:', game.fen()); });
-importBtn.addEventListener('click', ()=>{ const f = fenInput.value.trim(); if(!f){alert('Paste a FEN string first'); return;} const ok = game.load(f); if(!ok){ alert('Invalid FEN'); return;} board.position(game.fen()); updateStatus(); });
-
-/* ----- Drag/drop handlers ----- */
-function onDragStart(source, piece, position, orientation) {
-  if (game.game_over()) return false;
-  // only drag pieces of the side to move in PvP and for human side in PvAI
-  const mode = modeSelect.value;
-  if (mode === 'human-vs-ai') {
-    const humanSide = sideSelect.value;
-    if ((game.turn() === 'w' && piece.startsWith('b')) || (game.turn() === 'b' && piece.startsWith('w'))) {
-      // it's the side to move but not necessarily human — block if AI to move
-      // if it's AI's turn, block drag
+    function initCards() {
+      ui.cards.innerHTML = '';
+      for (const [id, plant] of Object.entries(CARD_DATA)) {
+        const btn = document.createElement('button');
+        btn.className = 'card';
+        btn.dataset.plant = id;
+        btn.innerHTML = `<span>${plant.name}</span><span>☀ ${plant.cost}</span>`;
+        btn.addEventListener('click', () => {
+          if (state.gameOver) return;
+          state.selectedPlant = id;
+          state.shovelMode = false;
+          updateCardStyles();
+        });
+        ui.cards.appendChild(btn);
+      }
+      updateCardStyles();
     }
-    // allow drag only if the piece belongs to human
-    if (!piece.startsWith(humanSide)) return false;
-    // also block if it's not human's turn
-    if ((game.turn() === 'w' && humanSide !== 'w') || (game.turn() === 'b' && humanSide !== 'b')) return false;
-  } else {
-    // local 2-player: allow any side to move normally (dragging rules handled below by chess.js)
-    if ((game.turn() === 'w' && piece.startsWith('b')) || (game.turn() === 'b' && piece.startsWith('w'))) {
-      return false;
+
+    function updateCardStyles() {
+      [...ui.cards.children].forEach((el) => {
+        const plant = CARD_DATA[el.dataset.plant];
+        el.classList.toggle('selected', state.selectedPlant === el.dataset.plant && !state.shovelMode);
+        el.classList.toggle('disabled', state.sun < plant.cost || state.gameOver);
+      });
+      ui.shovelBtn.textContent = `Shovel Mode: ${state.shovelMode ? 'On' : 'Off'}`;
+      ui.shovelBtn.style.background = state.shovelMode ? '#8b1e3f' : '#0f3d22';
     }
-  }
-}
 
-function onDrop(source, target) {
-  // attempt the move
-  const move = game.move({from: source, to: target, promotion: 'q'});
-  if (move === null) return 'snapback';
-  updateStatus();
-  // if playing vs AI and game not over and it's AI's turn, trigger AI
-  if (modeSelect.value === 'human-vs-ai') {
-    const humanSide = sideSelect.value;
-    if ((game.turn() === 'w' && humanSide !== 'w') || (game.turn() === 'b' && humanSide !== 'b')) {
-      // AI to move
-      window.setTimeout(runAI, 200);
+    ui.shovelBtn.addEventListener('click', () => {
+      if (state.gameOver) return;
+      state.shovelMode = !state.shovelMode;
+      if (state.shovelMode) state.selectedPlant = null;
+      updateCardStyles();
+    });
+
+    ui.restartBtn.addEventListener('click', resetGame);
+
+    canvas.addEventListener('click', (e) => {
+      if (state.gameOver) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+      const col = Math.floor(x / TILE_W);
+      const row = Math.floor(y / TILE_H);
+      if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
+
+      const idx = state.plants.findIndex((p) => p.row === row && p.col === col);
+
+      if (state.shovelMode) {
+        if (idx >= 0) state.plants.splice(idx, 1);
+        return;
+      }
+
+      const plantId = state.selectedPlant;
+      if (!plantId || idx >= 0) return;
+
+      const data = CARD_DATA[plantId];
+      if (state.sun < data.cost) return;
+
+      state.sun -= data.cost;
+      state.plants.push({
+        id: plantId,
+        row,
+        col,
+        x: col * TILE_W + TILE_W / 2,
+        y: row * TILE_H + TILE_H / 2,
+        hp: plantId === 'wallnut' ? 800 : 300,
+        attackCooldown: 0,
+        sunCooldown: 0,
+      });
+      updateCardStyles();
+    });
+
+    function spawnZombie() {
+      const row = Math.floor(Math.random() * ROWS);
+      const speed = 0.26 + Math.random() * 0.2 + state.wave * 0.02;
+      const hp = 180 + state.wave * 15;
+      state.zombies.push({
+        row,
+        x: canvas.width + 20,
+        y: row * TILE_H + TILE_H / 2,
+        hp,
+        maxHp: hp,
+        speed,
+        damageTick: 0,
+      });
+      state.totalSpawned += 1;
+      state.wave = 1 + Math.floor(state.totalSpawned / 8);
     }
-  }
-}
 
-function onSnapEnd() {
-  board.position(game.fen());
-}
+    function update() {
+      if (state.gameOver) return;
+      state.frame++;
 
-/* ----- Game helpers ----- */
-function updateStatus() {
-  let status = '';
-  const turn = game.turn() === 'w' ? 'White (Ash)' : 'Black (Team Rocket)';
-  if (game.in_checkmate()) {
-    status = 'Checkmate — ' + (game.turn() === 'w' ? 'Black wins' : 'White wins') + '.';
-  } else if (game.in_draw()) {
-    status = 'Draw.';
-  } else {
-    status = turn + ' to move';
-    if (game.in_check()) status += ' — CHECK!';
-  }
-  statusEl.innerText = status;
-  renderMoveList();
-}
+      if (state.totalSpawned < state.spawnLimit) {
+        state.nextZombieIn--;
+        if (state.nextZombieIn <= 0) {
+          spawnZombie();
+          state.nextZombieIn = Math.max(35, 175 - state.wave * 8);
+        }
+      } else if (state.zombies.length === 0) {
+        state.gameOver = true;
+        state.win = true;
+      }
 
-function renderMoveList() {
-  const history = game.history({verbose:true});
-  let html = '';
-  for (let i=0;i<history.length;i+=2) {
-    const white = history[i] ? history[i].san : '';
-    const black = history[i+1] ? history[i+1].san : '';
-    const moveNum = (Math.floor(i/2) + 1) + '.';
-    html += `<div style="margin-bottom:6px"><strong>${moveNum}</strong> ${white} &nbsp;&nbsp; ${black}</div>`;
-  }
-  moveListEl.innerHTML = html || '<div class="small">No moves yet</div>';
-}
+      for (const plant of state.plants) {
+        if (plant.id === 'peashooter') {
+          plant.attackCooldown--;
+          const hasTarget = state.zombies.some((z) => z.row === plant.row && z.x > plant.x - 20);
+          if (hasTarget && plant.attackCooldown <= 0) {
+            state.peas.push({ x: plant.x + 24, y: plant.y, row: plant.row, damage: 28 });
+            plant.attackCooldown = 42;
+          }
+        }
+        if (plant.id === 'sunflower') {
+          plant.sunCooldown--;
+          if (plant.sunCooldown <= 0) {
+            state.sun += 25;
+            plant.sunCooldown = 360;
+          }
+        }
+      }
 
-/* ----- Start/Reset/Undo ----- */
-function startNewGame() {
-  game.reset();
-  board.start();
-  updateStatus();
-  // if user chose side=black and mode=human-vs-ai, AI (white) should play first
-  if (modeSelect.value === 'human-vs-ai' && sideSelect.value === 'b') {
-    // AI is white; run AI move after small delay
-    window.setTimeout(runAI, 400);
-  }
-}
+      for (const pea of state.peas) pea.x += 5.8;
+      state.peas = state.peas.filter((pea) => pea.x < canvas.width + 40);
 
-function undoMove() {
-  // If playing vs AI, undo two plies to undo both player's and AI's last move
-  if (modeSelect.value === 'human-vs-ai') {
-    game.undo(); // undo last move (probably AI)
-    game.undo(); // undo previous (player)
-    board.position(game.fen());
-    updateStatus();
-  } else {
-    game.undo();
-    board.position(game.fen());
-    updateStatus();
-  }
-}
+      for (const zombie of state.zombies) {
+        const biteTarget = state.plants.find((p) => p.row === zombie.row && Math.abs(p.x - zombie.x) < 45);
+        if (biteTarget) {
+          zombie.damageTick++;
+          if (zombie.damageTick % 25 === 0) biteTarget.hp -= 30;
+        } else {
+          zombie.x -= zombie.speed;
+        }
 
-/* ----- SIMPLE AI: minimax with alpha-beta ----- */
-/*
-  This is a lightweight JS AI sufficient for a casual opponent.
-  Depth slider controls the search depth (1..4). Depth 3-4 is decent.
-*/
+        if (zombie.x < 10) {
+          state.gameOver = true;
+          state.win = false;
+        }
+      }
 
-function runAI() {
-  if (game.game_over()) return;
-  const depth = parseInt(depthRange.value,10);
-  const best = findBestMove(depth);
-  if (!best) return;
-  game.move({from: best.from, to: best.to, promotion: best.promotion || 'q'});
-  board.position(game.fen());
-  updateStatus();
-}
+      for (const pea of state.peas) {
+        const hit = state.zombies.find((z) => z.row === pea.row && Math.abs(z.x - pea.x) < 28);
+        if (hit) {
+          hit.hp -= pea.damage;
+          pea.x = canvas.width + 200;
+        }
+      }
 
-/* Evaluate board using piece values + simple piece-square preference */
-function evaluateBoardSimple(board) {
-  const values = {p:100, n:320, b:330, r:500, q:900, k:20000};
-  let total = 0;
-  for (let i=0;i<8;i++){
-    for (let j=0;j<8;j++){
-      const piece = board[i][j];
-      if (piece) {
-        const val = values[piece.type] || 0;
-        total += (piece.color === 'w') ? val : -val;
+      state.plants = state.plants.filter((p) => p.hp > 0);
+      state.zombies = state.zombies.filter((z) => z.hp > 0);
+
+      ui.sunCounter.textContent = `☀ Sun: ${state.sun}`;
+      ui.waveCounter.textContent = `🧟 Wave: ${state.wave}`;
+      updateCardStyles();
+    }
+
+    function drawGrid() {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const x = c * TILE_W;
+          const y = r * TILE_H;
+          ctx.fillStyle = (r + c) % 2 === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
+          ctx.fillRect(x, y, TILE_W, TILE_H);
+          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+          ctx.strokeRect(x, y, TILE_W, TILE_H);
+        }
       }
     }
-  }
-  return total;
-}
 
-function findBestMove(depth) {
-  const player = game.turn();
-  let bestMove = null;
-  let bestValue = -Infinity;
-  const possibleMoves = game.moves({verbose:true});
-  // move ordering: try captures first (simple heuristic)
-  possibleMoves.sort((a,b) => (b.captured ? 1:0) - (a.captured ? 1:0));
+    function drawPlants() {
+      for (const p of state.plants) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
 
-  for (let i=0;i<possibleMoves.length;i++) {
-    const m = possibleMoves[i];
-    game.move({from:m.from, to:m.to, promotion: m.promotion || 'q'});
-    const value = -negamax(depth-1, -Infinity, Infinity);
-    game.undo();
-    if (value > bestValue) {
-      bestValue = value;
-      bestMove = {from:m.from, to:m.to, promotion: m.promotion};
+        if (p.id === 'peashooter') {
+          ctx.fillStyle = '#2e7d32';
+          ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#43a047';
+          ctx.beginPath(); ctx.arc(18, -4, 12, 0, Math.PI * 2); ctx.fill();
+        }
+        if (p.id === 'sunflower') {
+          ctx.fillStyle = '#ffca28';
+          for (let i = 0; i < 10; i++) {
+            const a = (Math.PI * 2 * i) / 10;
+            ctx.beginPath(); ctx.arc(Math.cos(a) * 18, Math.sin(a) * 18, 8, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.fillStyle = '#6d4c41';
+          ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
+        }
+        if (p.id === 'wallnut') {
+          ctx.fillStyle = '#8d6e63';
+          ctx.beginPath(); ctx.ellipse(0, 0, 25, 32, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#5d4037';
+          ctx.fillRect(-8, -4, 16, 3);
+        }
+
+        const hpPct = Math.max(0, p.hp / (p.id === 'wallnut' ? 800 : 300));
+        ctx.fillStyle = '#00000055';
+        ctx.fillRect(-24, 34, 48, 6);
+        ctx.fillStyle = '#6eff6e';
+        ctx.fillRect(-24, 34, 48 * hpPct, 6);
+        ctx.restore();
+      }
     }
-  }
-  return bestMove;
-}
 
-function negamax(depth, alpha, beta) {
-  if (depth === 0) {
-    return evaluateBoardSimple(game.board());
-  }
+    function drawZombies() {
+      for (const z of state.zombies) {
+        ctx.save();
+        ctx.translate(z.x, z.y);
 
-  if (game.game_over()) {
-    // large positive if current player (to move) wins? we return evaluation relative to side to move
-    if (game.in_checkmate()) {
-      return -999999 + (4 - depth); // losing position for side to move
+        ctx.fillStyle = '#607d8b';
+        ctx.fillRect(-14, -18, 28, 36);
+        ctx.fillStyle = '#9ccc65';
+        ctx.beginPath(); ctx.arc(0, -26, 13, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(-7, -30, 3, 3);
+        ctx.fillRect(4, -30, 3, 3);
+
+        ctx.fillStyle = '#00000044';
+        ctx.fillRect(-20, 28, 40, 6);
+        ctx.fillStyle = '#ff5252';
+        ctx.fillRect(-20, 28, 40 * (z.hp / z.maxHp), 6);
+
+        ctx.restore();
+      }
     }
-    return 0; // draw
-  }
 
-  let max = -Infinity;
-  const moves = game.moves({verbose:true});
-  // basic ordering: captures first
-  moves.sort((a,b) => (b.captured ? 1:0) - (a.captured ? 1:0));
+    function drawPeas() {
+      ctx.fillStyle = '#8bc34a';
+      for (const pea of state.peas) {
+        ctx.beginPath();
+        ctx.arc(pea.x, pea.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
-  for (let i=0;i<moves.length;i++) {
-    const m = moves[i];
-    game.move({from:m.from, to:m.to, promotion: m.promotion || 'q'});
-    const score = -negamax(depth-1, -beta, -alpha);
-    game.undo();
-    if (score > max) max = score;
-    if (max > alpha) alpha = max;
-    if (alpha >= beta) break; // alpha-beta cutoff
-  }
-  return max;
-}
+    function drawOverlay() {
+      if (!state.gameOver) {
+        ui.status.innerHTML = '';
+        return;
+      }
+      const message = state.win ? 'You survived all waves! 🌻' : 'The zombies ate your brains!';
+      ui.status.innerHTML = `<div class="game-over">${message}</div>`;
 
-/* ----- initialize UI ----- */
-startNewGame();
-updateStatus();
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 52px system-ui';
+      ctx.fillText(state.win ? 'YOU WIN' : 'GAME OVER', canvas.width / 2, canvas.height / 2 - 10);
+      ctx.font = '22px system-ui';
+      ctx.fillText('Press Restart to play again', canvas.width / 2, canvas.height / 2 + 35);
+      ctx.textAlign = 'left';
+    }
 
-/* ----- make sure AI plays first if appropriate on load ----- */
-window.addEventListener('load', ()=> {
-  if (modeSelect.value === 'human-vs-ai' && sideSelect.value === 'b') {
-    // AI = white
-    setTimeout(runAI, 300);
-  }
-});
-</script>
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      drawPlants();
+      drawPeas();
+      drawZombies();
+      drawOverlay();
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resetGame() {
+      Object.assign(state, {
+        sun: 150,
+        wave: 1,
+        gameOver: false,
+        win: false,
+        selectedPlant: null,
+        shovelMode: false,
+        plants: [],
+        zombies: [],
+        peas: [],
+        nextZombieIn: 120,
+        totalSpawned: 0,
+        spawnLimit: 50,
+        frame: 0,
+      });
+      updateCardStyles();
+      ui.status.innerHTML = '';
+    }
+
+    initCards();
+    resetGame();
+    gameLoop();
+  </script>
 </body>
 </html>
